@@ -57,7 +57,6 @@ How to model -> NOT(extension=".tmp") as we have all major filters?
 Extension:
 we can have folder and files both, we can do dfs traversal in that case.
 
-
 ```
 class Node(ABC):
     pass
@@ -75,7 +74,6 @@ class Folder(Node):
 
     def add(self, node: Node):
         self.children.append(node)
-
 
 class FileSearcher:
 
