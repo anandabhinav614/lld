@@ -3,7 +3,7 @@ Concurrency & High performance focus:
     Rate Limiter
     In-Memory Key-Value Store
     Design PubSub (SNS)
-    File Downloader
+    File Downloader - Done
 
 Complex State Machines
     Vending Machine
