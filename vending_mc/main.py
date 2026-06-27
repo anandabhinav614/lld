@@ -1,6 +1,7 @@
 from uuid import uuid4
 from abc import ABC, abstractmethod
 from enum import Enum
+from threading import Lock
 
 class Denomination(Enum):
     ONE = 1
@@ -21,6 +22,7 @@ class Inventory:
     def __init__(self):
         self.products:dict[str, Product] = {} # product_id->Product
         self.quantities:dict[str, int] = {} 
+        self.lock = Lock()
     
     def add_product(self, product_name, product_price, quantity):
         new_product = Product(product_name, product_price)
@@ -30,8 +32,9 @@ class Inventory:
     def print_inventory(self):
         # product id, product name. product price, product qty
         print("name, price, qty")
-        for prd in self.products.values():
-            print(f"{prd.product_name} {prd.product_price} {self.quantities[prd.product_id]}")
+        with self.lock:
+            for prd in self.products.values():
+                print(f"{prd.product_name} {prd.product_price} {self.quantities[prd.product_id]}")
     
     def get_product(self, product_id:str):
         req_product =  self.products.get(product_id, None)
@@ -46,12 +49,14 @@ class Inventory:
         return qty
     
     def reduce_quantity(self, product_id):
-        if self.quantities[product_id]<=0:
-            raise ValueError("Out of stock")
-        self.quantities[product_id]-=1
+        with self.lock:
+            if self.quantities[product_id]<=0:
+                raise ValueError("Out of stock")
+            self.quantities[product_id]-=1
 
     def restock(self, product_id, qty):
-        self.quantities[product_id]+=qty
+        with self.lock:
+            self.quantities[product_id]+=qty
 
 class State(ABC):
     @abstractmethod
@@ -96,7 +101,8 @@ class ProductSelectedState(State):
             raise ValueError("Insufficient funds")
         vm.inventory.reduce_quantity(product.product_id)
         change = vm.inserted_amount - product.product_price
-        vm.balance+=product.product_price
+        with vm.cash_lock:
+            vm.balance+=product.product_price
         vm.reset()
         return product, change
 
@@ -109,9 +115,11 @@ class VendingMachine:
         self.current_state = IdleState()
         self.selected_product_id = None
         self.inserted_amount = 0
+        self.cash_lock = Lock()
     
     def add_cash_balance(self, amount:int):
-        self.balance+=amount
+        with self.cash_lock:
+            self.balance+=amount
     
     def add_product(self, product_name, product_price, quantity):
         self.inventory.add_product(product_name, product_price, quantity)
