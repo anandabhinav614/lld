@@ -77,7 +77,7 @@ class Warehouse:
             curr_qty = self.inventory.get(product_id, 0)
             return curr_qty >= quantity
 
-    def set_low_stock_alert(self, product_id:str, threshold:int, listener:AlterListener):
+    def set_low_stock_alert(self, product_id:str, threshold:int, listener:AlertListener):
         if threshold<= 0  or listener is None:
             raise ValueError("Invalid Params")
         
@@ -156,7 +156,7 @@ class InventoryManager:
                 to_warehouse.add_stock(product_id, quantity)
                 return True
         
-    def set_low_stock_alert(self, warehouse_id:str, product_id:str, threshold:int, listener:AlterListener):
+    def set_low_stock_alert(self, warehouse_id:str, product_id:str, threshold:int, listener:AlertListener):
         if warehouse_id not in self.warehouses:
             raise ValueError("Warehouse id not found")
         self.warehouses[warehouse_id].set_low_stock_alert(product_id, threshold, listener)
