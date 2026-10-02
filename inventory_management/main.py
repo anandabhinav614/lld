@@ -34,7 +34,7 @@ class Warehouse:
         Storing a list of configurations per product supports this naturally.
         '''
         self.alert_configs:dict[str, list[AlertConfig]] = defaultdict(list)  # maps product IDs to lists of AlertConfig objects
-        self.thresholds = {} # product_id -> threshold
+        # self.thresholds = {} # product_id -> threshold
     
     def add_stock(self, product_id:str, quantity:int):
         if quantity<=0:
