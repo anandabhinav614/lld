@@ -2,27 +2,21 @@ from collections import defaultdict
 import threading
 from abc import ABC, abstractmethod
 
-class AlterListener(ABC):
+class AlertListener(ABC):
    @abstractmethod
    def on_low_stock(self, warehouse_id:str, product_id:str, current_qty:int) -> None:
        pass
 
-class EmailListener(AlterListener):
+class EmailListener(AlertListener):
     def on_low_stock(self, warehouse_id, product_id, current_qty):
         subject = ""
         body = ""
         print(subject+'/n'+body)
         
 class AlertConfig:
-    def __init__(self, threshold:int, listener: AlterListener):
+    def __init__(self, threshold:int, listener: AlertListener):
         self.threshold = threshold
         self.listener = listener
-
-class AlertToFire:
-    def __init__(self, listener: AlterListener, product_id:str, quantity:int):
-        self.listener = listener
-        self.product_id = product_id
-        self.quantity = quantity
          
 
 # Track inventory for products
@@ -45,32 +39,31 @@ class Warehouse:
     def add_stock(self, product_id:str, quantity:int):
         if quantity<=0:
             raise ValueError("Qty must be +ve.")
-        alerts_to_fire:list[AlertToFire] = None
+        # alerts_to_fire:list[AlertToFire] = None
+        listeners = []
         with self.lock:
             prev_qty = self.inventory.get(product_id, 0)
             new_qty = prev_qty + quantity
             self.inventory[product_id] = new_qty
-            alerts_to_fire = self._get_alerts_to_fire(product_id, prev_qty, new_qty)
-        
-        if alerts_to_fire:
-            for alert in alerts_to_fire:
-                alert.listener.on_low_stock(self.id, alert.product_id, alert.quantity)
+            listeners = self._get_listeners_to_notify(product_id, prev_qty, new_qty)
+    
+        for listener in listeners:
+            listener.on_low_stock(self.id, product_id, new_qty)
 
     def remove_stock(self, product_id:str, quantity:int) -> bool:
         if quantity<=0:
             return False
-        alerts_to_fire:list[AlertToFire] = None
+        listeners = []
         with self.lock:
             current_qty = self.inventory.get(product_id, 0)
             if current_qty < quantity:
                 return False
             new_qty = current_qty - quantity
             self.inventory[product_id] = new_qty
-            alerts_to_fire = self._get_alerts_to_fire(product_id, current_qty, new_qty)
+            listeners = self._get_listeners_to_notify(product_id, current_qty, new_qty)
         
-        if alerts_to_fire:
-            for alert in alerts_to_fire:
-                alert.listener.on_low_stock(self.id, alert.product_id, alert.quantity)
+        for listener in listeners:
+            listener.on_low_stock(self.warehouse_id, product_id, new_qty)
         return True
 
     def get_stock(self, product_id:str) -> int:
@@ -92,19 +85,32 @@ class Warehouse:
             self.alert_configs[product_id].append(AlertConfig(threshold, listener))
 
     # you need previous if you want to alert only when the threshold is crossed, not every time the stock is low
-    def _get_alerts_to_fire(self, product_id:str, prev_qty:int, new_qty:int) ->list[AlertToFire]:
-        configs = self.alert_configs.get(product_id, None)
-        if configs == None:
-            return None
-        alerts_to_fire = []
+    def _get_listeners_to_notify(self, product_id: str, previous_qty: int, new_qty: int) -> list[AlertListener]:
 
-        for config in configs:
-            if prev_qty>=config.threshold and config.threshold>new_qty:
-                alerts_to_fire.append(AlertToFire(config.listener, product_id, new_qty))
+        listeners = []
+
+        for config in self.alert_configs.get(product_id, []):
+            if (
+                previous_qty >= config.threshold
+                and new_qty < config.threshold
+            ):
+                listeners.append(config.listener)
+
+        return listeners
+    
+    # def _get_alerts_to_fire(self, product_id:str, prev_qty:int, new_qty:int) ->list[AlertToFire]:
+    #     configs = self.alert_configs.get(product_id, None)
+    #     if configs == None:
+    #         return None
+    #     alerts_to_fire = []
+
+    #     for config in configs:
+    #         if prev_qty>=config.threshold and config.threshold>new_qty:
+    #             alerts_to_fire.append(AlertToFire(config.listener, product_id, new_qty))
         
-        if len(alerts_to_fire)==0:
-            return None
-        return alerts_to_fire
+    #     if len(alerts_to_fire)==0:
+    #         return None
+    #     return alerts_to_fire
 
 # Track inventory for products across multiple warehouses
 # Add stock to a specific warehouse
